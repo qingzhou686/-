@@ -1,0 +1,874 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>狸若 - 在线魔方秒表</title>
+<meta name="theme-color" content="#ffffff">
+<meta name="description" content="狸若在线魔方秒表：空格键开始/停止/复位，随机打乱公式、成绩记录与统计，可导出到 Excel。单个网页，离线可用。">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cpath d='M13 30 L15 7 L31 22 Z' fill='%23F5843C'/%3E%3Cpath d='M51 30 L49 7 L33 22 Z' fill='%23F5843C'/%3E%3Ccircle cx='32' cy='36' r='21' fill='%23F5843C'/%3E%3Cpath d='M32 51 C 24 51 19 45.5 19 39.5 C 25 34 28.5 32 32 32 C 35.5 32 39 34 45 39.5 C 45 45.5 40 51 32 51 Z' fill='%23FFF4E6'/%3E%3Ccircle cx='24' cy='35' r='2.9' fill='%233A2A22'/%3E%3Ccircle cx='40' cy='35' r='2.9' fill='%233A2A22'/%3E%3Cpath d='M32 41.5 C 34.2 41.5 35.4 42.9 35.4 44 C 35.4 45.5 33.8 46.6 32 46.6 C 30.2 46.6 28.6 45.5 28.6 44 C 28.6 42.9 29.8 41.5 32 41.5 Z' fill='%233A2A22'/%3E%3C/svg%3E"> 
+<style>
+  :root{
+    --navy:#12188c;
+    --ready:#00a651;
+    --pink:#d81b60;
+    --border:#b7a469;
+    --timer-size:180px;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;
+    background:#fff;
+    color:#111;
+    font-family:"Microsoft YaHei UI","Microsoft YaHei","PingFang SC","Hiragino Sans GB","Noto Sans SC",sans-serif;
+    -webkit-text-size-adjust:100%;
+  }
+  .wrap{
+    max-width:1120px;
+    margin:0 auto;
+    padding:18px 16px 40px;
+    text-align:center;
+  }
+
+  /* ---------- 秒表 ---------- */
+  .timer{
+    font-family:"Arial Black","Segoe UI Black",Impact,"Microsoft YaHei UI",sans-serif;
+    font-weight:900;
+    /* 大屏按所选尺寸显示，窄屏自动收缩，保证不换行、不出现横向滚动条 */
+    font-size:min(var(--timer-size), 16.5vw);
+    line-height:1.05;
+    letter-spacing:-0.02em;
+    color:var(--navy);
+    font-variant-numeric:tabular-nums;
+    font-feature-settings:"tnum" 1;
+    user-select:none;
+    -webkit-user-select:none;
+    touch-action:manipulation;
+    cursor:pointer;
+    transition:color .12s linear;
+    margin:6px 0 26px;
+    word-break:keep-all;
+  }
+  .timer.ready{color:var(--ready)}
+
+  /* ---------- 说明文字 ---------- */
+  .hint{
+    font-size:22px;
+    font-weight:700;
+    line-height:1.6;
+    margin:0 0 12px;
+  }
+  .hint a{
+    color:#0000ee;
+    text-decoration:underline;
+    cursor:pointer;
+    font-weight:400;
+  }
+  .note{
+    font-size:21px;
+    font-weight:700;
+    line-height:1.7;
+    margin:0 0 6px;
+  }
+  .note.plain{font-weight:400}
+  .hl{color:var(--pink);font-style:normal}
+
+  /* ---------- 打乱公式 ---------- */
+  .scramble{
+    font-size:24px;
+    font-weight:700;
+    letter-spacing:.02em;
+    margin:26px 0 12px;
+    word-spacing:.12em;
+    user-select:all;
+  }
+
+  /* ---------- 工具条 ---------- */
+  .toolbar{
+    display:flex;
+    flex-wrap:wrap;
+    justify-content:center;
+    align-items:center;
+    gap:8px;
+    margin-bottom:10px;
+  }
+  .toolbar button{
+    font-family:inherit;
+    font-size:17px;
+    padding:5px 11px;
+    background:#fff;
+    color:#111;
+    border:1px solid #2b2b2b;
+    border-radius:2px;
+    cursor:pointer;
+  }
+  .toolbar button:hover{background:#f2f2f2}
+  .toolbar button:active{background:#e6e6e6}
+  .toolbar button.on{background:#12188c;border-color:#12188c;color:#fff}
+  .sizes{
+    font-size:17px;
+    margin-left:6px;
+    white-space:nowrap;
+  }
+  .sizes a{
+    cursor:pointer;
+    color:#111;
+    text-decoration:underline;
+    padding:0 1px;
+  }
+  .sizes a.active{
+    color:#0000ee;
+    font-weight:700;
+    text-decoration:none;
+  }
+
+  /* ---------- 成绩表格 ---------- */
+  .tableWrap{
+    display:inline-block;
+    max-width:100%;
+    overflow-x:auto;
+  }
+  table{
+    border-collapse:collapse;
+    margin:0 auto;
+    font-size:17px;
+    font-variant-numeric:tabular-nums;
+  }
+  th,td{
+    border:1px solid var(--border);
+    min-width:78px;
+    height:28px;
+    padding:2px 6px;
+    text-align:center;
+    white-space:nowrap;
+    font-weight:400;
+  }
+  th{background:#efefef}
+  td.empty{color:#8a8a8a}
+  td.dnf{color:var(--pink)}
+  td.just{background:#fff8c9}
+
+  /* ---------- 统计 ---------- */
+  .stats{
+    margin:26px auto 0;
+    font-size:22px;
+    font-weight:700;
+    line-height:1.75;
+    width:fit-content;
+    text-align:left;
+  }
+  .stats .val{color:var(--navy)}
+  .count{
+    margin-top:4px;
+    font-size:15px;
+    color:#9aa0a6;
+    font-weight:400;
+  }
+
+  /* ---------- 页脚 logo ---------- */
+  .logo{
+    margin:44px auto 0;
+    display:flex;
+    flex-wrap:wrap;
+    align-items:center;
+    justify-content:center;
+    gap:12px;
+  }
+  .logoMark{
+    width:54px;
+    height:54px;
+    flex:0 0 auto;
+  }
+  .logoMark svg{width:100%;height:100%;display:block}
+  .logoText{
+    font-size:44px;
+    font-weight:900;
+    letter-spacing:.04em;
+    background:linear-gradient(100deg,#e8452c 0%,#f2a03d 30%,#7fc242 62%,#35b5e5 100%);
+    -webkit-background-clip:text;
+    background-clip:text;
+    color:transparent;
+  }
+  .logoTag{
+    font-size:23px;
+    color:#9aa0a6;
+    letter-spacing:.02em;
+  }
+  .footNote{
+    margin:16px auto 0;
+    font-size:13.5px;
+    color:#b3b9c0;
+    line-height:1.7;
+  }
+
+  /* ---------- 会走动的卡通狐狸 ---------- */
+  .foxPet{
+    position:fixed;
+    left:0;
+    top:0;
+    width:96px;
+    height:96px;
+    z-index:40;
+    cursor:grab;
+    touch-action:none;
+    user-select:none;
+    -webkit-user-select:none;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .foxPet.dragging{cursor:grabbing}
+  .foxPetInner{
+    position:relative;
+    display:block;
+    width:100%;
+    height:100%;
+    animation:foxFloat 3.4s ease-in-out infinite;
+  }
+  .foxPet.dragging .foxPetInner{
+    animation:none;
+    transform:scale(1.12) rotate(-5deg);
+  }
+  .foxPet.hop .foxPetInner{animation:foxHop .62s cubic-bezier(.28,.9,.32,1.4)}
+  .foxArt{display:block;width:100%;height:100%}
+  .foxPet svg{
+    display:block;
+    width:100%;
+    height:100%;
+    filter:drop-shadow(0 8px 12px rgba(58,42,34,.2));
+  }
+  .foxBubble{
+    position:absolute;
+    left:50%;
+    top:-4px;
+    transform:translate(-50%,-100%);
+    background:#3a2a22;
+    color:#fff;
+    font-size:13px;
+    line-height:1.2;
+    padding:4px 9px;
+    border-radius:11px;
+    white-space:nowrap;
+    opacity:0;
+    transition:opacity .2s ease;
+    pointer-events:none;
+  }
+  .foxBubble.show{opacity:.94}
+  @keyframes foxFloat{
+    0%,100%{transform:translateY(0)}
+    50%{transform:translateY(-5px)}
+  }
+  @keyframes foxHop{
+    0%{transform:translateY(0) scale(1)}
+    30%{transform:translateY(-18px) scale(1.06,.94)}
+    62%{transform:translateY(0) scale(.94,1.06)}
+    100%{transform:translateY(0) scale(1)}
+  }
+
+  /* ---------- 提示气泡 ---------- */
+  .toast{
+    position:fixed;
+    left:50%;
+    bottom:28px;
+    transform:translateX(-50%) translateY(14px);
+    background:rgba(18,24,140,.92);
+    color:#fff;
+    font-size:15px;
+    padding:8px 16px;
+    border-radius:20px;
+    opacity:0;
+    pointer-events:none;
+    transition:opacity .18s,transform .18s;
+    z-index:50;
+  }
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+  @media (max-width:760px){
+    .hint,.note{font-size:16px}
+    .scramble{font-size:18px}
+    .toolbar button{font-size:15px;padding:5px 8px}
+    .stats{font-size:18px}
+    .logoText{font-size:32px}
+    .logoTag{font-size:17px}
+    .logoMark{width:40px;height:40px}
+    .foxPet{width:76px;height:76px}
+    .footNote{font-size:12px;padding:0 8px}
+    th,td{min-width:58px;font-size:15px}
+  }
+</style>
+</head>
+<body>
+<main class="wrap">
+
+  <div class="timer" id="timer" title="点击此区域也可以开始 / 停止">00:00.00</div>
+
+  <p class="hint" id="hintLine">
+    用空格键开始(松开时触发)、停止(按下时触发)、复位(同时记录成绩)，enjoy:)
+    <a id="toggleHelp">隐藏说明文字</a>
+  </p>
+
+  <div id="helpBlock">
+    <p class="note">注意：某些时候，如刚打开此页后，<i class="hl">如空格键不起作用，请先用鼠标点一下本页任意空白处</i>，即可开始。</p>
+    <p class="note plain">请先最大化窗口或拉伸窗口使右边的滚动条不出现，否则空格键会让窗口滚动。</p>
+  </div>
+
+  <div class="scramble" id="scramble"></div>
+
+  <div class="toolbar">
+    <button id="dnfBtn" title="把最近这一次成绩标记为 DNF / POP（再次点击可取消）">DNF or POP 不记录此次成绩</button>
+    <button id="clearLastBtn">清除上次成绩</button>
+    <button id="clearAllBtn">清除所有记录</button>
+    <button id="exportBtn">导出成绩到excel</button>
+    <span class="sizes">
+      秒表尺寸：
+      <a data-size="large">大</a>，
+      <a data-size="medium">中</a>，
+      <a data-size="small">小</a>
+    </span>
+  </div>
+
+  <div class="tableWrap"><table id="results"></table></div>
+
+  <div class="stats">
+    <div>最快：<span class="val" id="best">-</span></div>
+    <div>最慢：<span class="val" id="worst">-</span></div>
+    <div>平均：<span class="val" id="avg">-</span></div>
+    <div class="count" id="count"></div>
+  </div>
+
+  <footer class="logo">
+    <span class="logoMark" id="logoMark" aria-hidden="true"></span>
+    <span class="logoText">狸若</span>
+    <span class="logoTag">实现你童年的小小梦想</span>
+  </footer>
+  <p class="footNote">狸若在线魔方秒表 · 成绩保存在本机浏览器，可用“导出成绩到excel”备份</p>
+
+</main>
+
+<div class="foxPet" id="foxPet" role="img" aria-label="可以拖动的卡通狐狸" title="拖动我换个位置 · 双击回到右下角">
+  <span class="foxPetInner">
+    <span class="foxBubble" id="foxBubble">拖我</span>
+    <span class="foxArt" id="foxArt"></span>
+  </span>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function () {
+  "use strict";
+
+  var STORE_KEY = "cubeTimer.solves.v1";
+  var SIZE_KEY  = "cubeTimer.size.v1";
+  var COLS = 12;
+
+  var timerEl   = document.getElementById("timer");
+  var scrambleEl= document.getElementById("scramble");
+  var tableEl   = document.getElementById("results");
+  var bestEl    = document.getElementById("best");
+  var worstEl   = document.getElementById("worst");
+  var avgEl     = document.getElementById("avg");
+  var countEl   = document.getElementById("count");
+  var toastEl   = document.getElementById("toast");
+  var helpBlock = document.getElementById("helpBlock");
+  var toggleHelp= document.getElementById("toggleHelp");
+  var dnfBtn    = document.getElementById("dnfBtn");
+  var sizeLinks = document.querySelectorAll(".sizes a");
+
+  var solves = load();
+  var phase  = "idle";      // idle | holding | running | stopped
+  var startTs = 0;
+  var rafId = null;
+  var holdTimer = null;
+  var lastIndex = -1;       // 最近一次记录，用于表格高亮
+  var helpVisible = true;
+
+  /* ---------------- 存储 ---------------- */
+  function load() {
+    try {
+      var raw = localStorage.getItem(STORE_KEY);
+      if (!raw) return [];
+      var arr = JSON.parse(raw);
+      return Array.isArray(arr) ? arr : [];
+    } catch (e) { return []; }
+  }
+  function save() {
+    try { localStorage.setItem(STORE_KEY, JSON.stringify(solves)); } catch (e) {}
+  }
+
+  /* ---------------- 时间格式化 ---------------- */
+  function pad(n, len) {
+    n = String(Math.floor(n));
+    while (n.length < len) n = "0" + n;
+    return n;
+  }
+  // 长格式：00:00.00
+  function fmtFull(ms) {
+    var cs = Math.floor(ms / 10) % 100;
+    var s  = Math.floor(ms / 1000) % 60;
+    var m  = Math.floor(ms / 60000);
+    return pad(m, 2) + ":" + pad(s, 2) + "." + pad(cs, 2);
+  }
+  // 短格式：12.34 或 1:02.34
+  function fmtShort(ms) {
+    var cs = Math.floor(ms / 10) % 100;
+    var s  = Math.floor(ms / 1000) % 60;
+    var m  = Math.floor(ms / 60000);
+    if (m > 0) return m + ":" + pad(s, 2) + "." + pad(cs, 2);
+    return s + "." + pad(cs, 2);
+  }
+  function fmtSeconds(ms) { return (ms / 1000).toFixed(2); }
+
+  /* ---------------- 打乱公式 ---------------- */
+  var FACES = ["U", "D", "L", "R", "F", "B"];
+  var SUFFIX = ["", "'", "2"];
+  var AXIS = { U: 0, D: 0, L: 1, R: 1, F: 2, B: 2 };
+
+  function newScramble() {
+    var len = 20, out = [], lastFace = "", beforeFace = "";
+    while (out.length < len) {
+      var f = FACES[Math.floor(Math.random() * FACES.length)];
+      if (f === lastFace) continue;
+      if (beforeFace && AXIS[f] === AXIS[lastFace] && AXIS[f] === AXIS[beforeFace]) continue;
+      out.push(f + SUFFIX[Math.floor(Math.random() * SUFFIX.length)]);
+      beforeFace = lastFace;
+      lastFace = f;
+    }
+    return out.join(" ");
+  }
+
+  /* ---------------- 计时核心 ---------------- */
+  function showIdle() {
+    phase = "idle";
+    cancelAnimationFrame(rafId);
+    timerEl.textContent = "00:00.00";
+    timerEl.classList.remove("ready");
+  }
+
+  function beginHold() {
+    if (phase !== "idle") return;
+    phase = "holding";
+    holdTimer = setTimeout(function () {
+      if (phase === "holding") timerEl.classList.add("ready");
+    }, 180);
+  }
+
+  function releaseHold() {
+    if (phase !== "holding") return;
+    clearTimeout(holdTimer);
+    timerEl.classList.remove("ready");
+    startRunning();
+  }
+
+  function startRunning() {
+    phase = "running";
+    startTs = performance.now();
+    timerEl.textContent = "00:00.00";
+    var tick = function () {
+      timerEl.textContent = fmtFull(performance.now() - startTs);
+      rafId = requestAnimationFrame(tick);
+    };
+    rafId = requestAnimationFrame(tick);
+  }
+
+  function stopRunning() {
+    var ms = performance.now() - startTs;
+    cancelAnimationFrame(rafId);
+    timerEl.textContent = fmtFull(ms);
+    timerEl.classList.remove("ready");
+    phase = "stopped";
+    solves.push({ ms: ms, dnf: false, at: Date.now() });
+    lastIndex = solves.length - 1;
+    save();
+    render();
+    hopFox();
+    foxSay(fmtShort(ms));
+  }
+
+  // 复位：成绩在“停止”时已入账，这里只清屏并换一条新打乱公式
+  function reset() {
+    showIdle();
+    lastIndex = -1;
+    scrambleEl.textContent = newScramble();
+    render();
+  }
+
+  function spaceDown() {
+    if (phase === "running") { stopRunning(); return; }
+    if (phase === "stopped") { reset(); return; }
+    if (phase === "idle") beginHold();
+  }
+  function spaceUp() {
+    if (phase === "holding") releaseHold();
+  }
+
+  /* ---------------- 表格与统计 ---------------- */
+  function render() {
+    var n = solves.length;
+    var rows = Math.max(1, Math.ceil(n / COLS));
+    var html = "";
+    var r, c, i, idx, s;
+
+    for (r = 0; r < rows; r++) {
+      html += "<tr>";
+      for (c = 0; c < COLS; c++) {
+        idx = r * COLS + c;
+        html += "<th>" + (idx + 1) + "</th>";
+      }
+      html += "</tr><tr>";
+      for (c = 0; c < COLS; c++) {
+        i = r * COLS + c;
+        s = solves[i];
+        if (!s) {
+          html += '<td class="empty">--</td>';
+        } else if (s.dnf) {
+          html += '<td class="dnf' + (i === lastIndex ? " just" : "") + '">DNF</td>';
+        } else {
+          html += '<td class="' + (i === lastIndex ? "just" : "") + '">' + fmtShort(s.ms) + "</td>";
+        }
+      }
+      html += "</tr>";
+    }
+    tableEl.innerHTML = html;
+
+    var times = [];
+    var dnfCount = 0;
+    for (i = 0; i < solves.length; i++) {
+      if (solves[i].dnf) dnfCount++;
+      else times.push(solves[i].ms);
+    }
+
+    if (times.length) {
+      var best = Math.min.apply(null, times);
+      var worst = Math.max.apply(null, times);
+      var sum = 0;
+      for (i = 0; i < times.length; i++) sum += times[i];
+      bestEl.textContent  = fmtShort(best);
+      worstEl.textContent = fmtShort(worst);
+      avgEl.textContent   = fmtShort(sum / times.length);
+    } else {
+      bestEl.textContent = "-";
+      worstEl.textContent = "-";
+      avgEl.textContent = "-";
+    }
+
+    countEl.textContent = solves.length
+      ? "共 " + solves.length + " 次成绩（有效 " + times.length + " 次" + (dnfCount ? "，DNF " + dnfCount + " 次" : "") + "）"
+      : "";
+
+    dnfBtn.classList.toggle("on", solves.length > 0 && solves[solves.length - 1].dnf);
+  }
+
+  /* ---------------- 提示气泡 ---------------- */
+  var toastTimer = null;
+  function toast(msg) {
+    toastEl.textContent = msg;
+    toastEl.classList.add("show");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { toastEl.classList.remove("show"); }, 1600);
+  }
+
+  /* ---------------- 按钮 ---------------- */
+  dnfBtn.addEventListener("click", function () {
+    if (!solves.length) { toast("还没有成绩可以标记"); return; }
+    var last = solves[solves.length - 1];
+    last.dnf = !last.dnf;
+    lastIndex = solves.length - 1;
+    save();
+    render();
+    toast(last.dnf ? "最近一次成绩已标记为 DNF" : "已取消 DNF 标记");
+    foxSay(last.dnf ? "这次不算～" : "好，记上啦");
+  });
+
+  document.getElementById("clearLastBtn").addEventListener("click", function () {
+    if (!solves.length) { toast("没有可清除的成绩"); return; }
+    var removed = solves.pop();
+    lastIndex = -1;
+    save();
+    render();
+    toast("已清除上次成绩：" + (removed.dnf ? "DNF" : fmtShort(removed.ms)));
+  });
+
+  document.getElementById("clearAllBtn").addEventListener("click", function () {
+    if (!solves.length) { toast("没有可清除的记录"); return; }
+    if (!confirm("确定要清除所有成绩记录吗？此操作不可恢复。")) return;
+    solves = [];
+    lastIndex = -1;
+    save();
+    render();
+    toast("已清除所有记录");
+  });
+
+  document.getElementById("exportBtn").addEventListener("click", function () {
+    if (!solves.length) { toast("还没有成绩可以导出"); return; }
+    var lines = ["序号,成绩,DNF,秒,记录时间"];
+    var times = [];
+    var i, s, t, sec, when;
+
+    for (i = 0; i < solves.length; i++) {
+      s = solves[i];
+      t   = s.dnf ? "" : fmtShort(s.ms);
+      sec = s.dnf ? "" : fmtSeconds(s.ms);
+      when = new Date(s.at).toLocaleString("zh-CN");
+      if (!s.dnf) times.push(s.ms);
+      lines.push([i + 1, t, s.dnf ? "DNF" : "", sec, when].join(","));
+    }
+    if (times.length) {
+      var sum = 0;
+      for (i = 0; i < times.length; i++) sum += times[i];
+      lines.push("");
+      lines.push("最快," + fmtShort(Math.min.apply(null, times)));
+      lines.push("最慢," + fmtShort(Math.max.apply(null, times)));
+      lines.push("平均," + fmtShort(sum / times.length));
+    }
+
+    var blob = new Blob(["\ufeff" + lines.join("\r\n")], { type: "text/csv;charset=utf-8;" });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    var d = new Date();
+    a.href = url;
+    a.download = "魔方成绩_" + d.getFullYear() + pad(d.getMonth() + 1, 2) + pad(d.getDate(), 2) + ".csv";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(function () { URL.revokeObjectURL(url); }, 3000);
+    toast("已导出，可直接用 Excel 打开");
+  });
+
+  // 秒表尺寸
+  function applySize(size) {
+    var px = { large: "180px", medium: "120px", small: "78px" }[size] || "180px";
+    document.documentElement.style.setProperty("--timer-size", px);
+    for (var i = 0; i < sizeLinks.length; i++) {
+      sizeLinks[i].classList.toggle("active", sizeLinks[i].dataset.size === size);
+    }
+    try { localStorage.setItem(SIZE_KEY, size); } catch (e) {}
+  }
+  for (var li = 0; li < sizeLinks.length; li++) {
+    (function (a) {
+      a.addEventListener("click", function () { applySize(a.dataset.size); });
+    })(sizeLinks[li]);
+  }
+
+  // 说明文字显示 / 隐藏
+  toggleHelp.addEventListener("click", function () {
+    helpVisible = !helpVisible;
+    helpBlock.style.display = helpVisible ? "" : "none";
+    toggleHelp.textContent = helpVisible ? "隐藏说明文字" : "显示说明文字";
+  });
+
+  /* ---------------- 键盘 / 触摸 ---------------- */
+  document.addEventListener("keydown", function (e) {
+    if (e.code === "Space" || e.key === " " || e.key === "Spacebar") {
+      e.preventDefault();
+      if (e.repeat) return;
+      spaceDown();
+    }
+  });
+  document.addEventListener("keyup", function (e) {
+    if (e.code === "Space" || e.key === " " || e.key === "Spacebar") {
+      e.preventDefault();
+      spaceUp();
+    }
+  });
+
+  function isInteractive(el) {
+    if (!el || !el.tagName) return false;
+    var tag = el.tagName;
+    if (tag === "BUTTON" || tag === "A" || tag === "INPUT" || tag === "SELECT" || tag === "TEXTAREA") return true;
+    // 狐狸和右下角提示属于可交互区域，点它们不该触发计时
+    return !!(el.closest && el.closest(".foxPet, .toast"));
+  }
+  document.addEventListener("pointerdown", function (e) {
+    if (isInteractive(e.target)) return;
+    if (e.pointerType === "mouse" && e.button !== 0) return;
+    spaceDown();
+  });
+  document.addEventListener("pointerup", function (e) {
+    if (isInteractive(e.target)) return;
+    spaceUp();
+  });
+
+  // 切回页面时恢复正常走时
+  document.addEventListener("visibilitychange", function () {
+    if (document.hidden || phase !== "running") return;
+    cancelAnimationFrame(rafId);
+    var tick = function () {
+      timerEl.textContent = fmtFull(performance.now() - startTs);
+      rafId = requestAnimationFrame(tick);
+    };
+    rafId = requestAnimationFrame(tick);
+  });
+
+  /* ---------------- 会走动的卡通狐狸 ---------------- */
+  var FOX_SVG =
+    '<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">' +
+      '<path d="M132 172 C 172 182 196 150 186 116" fill="none" stroke="#E9701F" stroke-width="30" stroke-linecap="round"/>' +
+      '<path d="M191 129 C 188.5 122.5 187 119 186 116" fill="none" stroke="#FFF4E6" stroke-width="26" stroke-linecap="round"/>' +
+      '<ellipse cx="100" cy="152" rx="50" ry="40" fill="#F5843C"/>' +
+      '<ellipse cx="100" cy="160" rx="30" ry="28" fill="#FFF4E6"/>' +
+      '<ellipse cx="76" cy="184" rx="15" ry="11" fill="#E9701F"/>' +
+      '<ellipse cx="124" cy="184" rx="15" ry="11" fill="#E9701F"/>' +
+      '<path d="M62 64 L64 20 L104 50 Z" fill="#F5843C"/>' +
+      '<path d="M138 64 L136 20 L96 50 Z" fill="#F5843C"/>' +
+      '<path d="M70 58 L71 33 L95 51 Z" fill="#3A2A22"/>' +
+      '<path d="M130 58 L129 33 L105 51 Z" fill="#3A2A22"/>' +
+      '<circle cx="100" cy="88" r="47" fill="#F5843C"/>' +
+      '<path d="M100 132 C 84 132 70 120 70 106 C 82 96 92 92 100 92 C 108 92 118 96 130 106 C 130 120 116 132 100 132 Z" fill="#FFF4E6"/>' +
+      '<circle cx="66" cy="100" r="9" fill="#FFB9A3" opacity=".75"/>' +
+      '<circle cx="134" cy="100" r="9" fill="#FFB9A3" opacity=".75"/>' +
+      '<ellipse cx="82" cy="86" rx="6.5" ry="8" fill="#3A2A22"/>' +
+      '<ellipse cx="118" cy="86" rx="6.5" ry="8" fill="#3A2A22"/>' +
+      '<circle cx="84" cy="83" r="2.3" fill="#FFFFFF"/>' +
+      '<circle cx="120" cy="83" r="2.3" fill="#FFFFFF"/>' +
+      '<path d="M100 99 C 105 99 108 102.5 108 105.8 C 108 109.8 104 112.8 100 112.8 C 96 112.8 92 109.8 92 105.8 C 92 102.5 95 99 100 99 Z" fill="#3A2A22"/>' +
+      '<path d="M100 113 L100 118" stroke="#3A2A22" stroke-width="2.6" stroke-linecap="round"/>' +
+      '<path d="M100 118 C 96 124 90 124 87 120" fill="none" stroke="#3A2A22" stroke-width="2.6" stroke-linecap="round"/>' +
+      '<path d="M100 118 C 104 124 110 124 113 120" fill="none" stroke="#3A2A22" stroke-width="2.6" stroke-linecap="round"/>' +
+    "</svg>";
+
+  var FOX_POS_KEY  = "cubeTimer.foxPos.v1";
+  var FOX_HINT_KEY = "cubeTimer.foxHint.v1";
+  var FOX_LINES = ["加油！", "好快呀！", "再来一次！", "我陪你计时～", "冲鸭！", "稳住，别手抖"];
+
+  var foxEl     = document.getElementById("foxPet");
+  var foxBubble = document.getElementById("foxBubble");
+  var foxDrag   = null;
+  var lastFoxTap = 0;
+  var bubbleTimer = null;
+  var hopTimer = null;
+
+  function foxSize() { return foxEl.offsetWidth || 96; }
+
+  // 位置按“可用范围的百分比”存储，换屏幕尺寸也能落在同一相对位置
+  function moveFox(x, y) {
+    var s = foxSize();
+    var maxX = Math.max(4, window.innerWidth - s - 4);
+    var maxY = Math.max(4, window.innerHeight - s - 4);
+    var nx = Math.min(Math.max(4, x), maxX);
+    var ny = Math.min(Math.max(4, y), maxY);
+    foxEl.style.left = nx + "px";
+    foxEl.style.top  = ny + "px";
+    return { x: nx, y: ny };
+  }
+
+  function saveFoxPos() {
+    var s = foxSize();
+    var r = {
+      fx: (parseFloat(foxEl.style.left) || 0) / Math.max(1, window.innerWidth - s),
+      fy: (parseFloat(foxEl.style.top) || 0) / Math.max(1, window.innerHeight - s)
+    };
+    try { localStorage.setItem(FOX_POS_KEY, JSON.stringify(r)); } catch (e) {}
+  }
+
+  function restoreFoxPos() {
+    var saved = null;
+    try { saved = JSON.parse(localStorage.getItem(FOX_POS_KEY) || "null"); } catch (e) {}
+    var s = foxSize();
+    if (saved && typeof saved.fx === "number" && typeof saved.fy === "number") {
+      moveFox(saved.fx * Math.max(1, window.innerWidth - s),
+              saved.fy * Math.max(1, window.innerHeight - s));
+    } else {
+      moveFox(window.innerWidth - s - 22, window.innerHeight - s - 22);
+    }
+  }
+
+  function resetFoxPos() {
+    var s = foxSize();
+    moveFox(window.innerWidth - s - 22, window.innerHeight - s - 22);
+    saveFoxPos();
+    hopFox();
+    foxSay("我回来了～");
+  }
+
+  function foxSay(text, ms) {
+    foxBubble.textContent = text;
+    foxBubble.classList.add("show");
+    clearTimeout(bubbleTimer);
+    bubbleTimer = setTimeout(function () { foxBubble.classList.remove("show"); }, ms || 1800);
+  }
+
+  function hopFox() {
+    foxEl.classList.remove("hop");
+    void foxEl.offsetWidth;          // 重置动画，保证连续触发也有跳动
+    foxEl.classList.add("hop");
+    clearTimeout(hopTimer);
+    hopTimer = setTimeout(function () { foxEl.classList.remove("hop"); }, 700);
+  }
+
+  foxEl.addEventListener("pointerdown", function (e) {
+    if (e.pointerType === "mouse" && e.button !== 0) return;
+    e.preventDefault();
+    e.stopPropagation();
+    var r = foxEl.getBoundingClientRect();
+    foxDrag = {
+      id: e.pointerId,
+      dx: e.clientX - r.left,
+      dy: e.clientY - r.top,
+      sx: e.clientX,
+      sy: e.clientY,
+      moved: false
+    };
+    foxEl.classList.add("dragging");
+    if (foxEl.setPointerCapture) {
+      try { foxEl.setPointerCapture(e.pointerId); } catch (err) {}
+    }
+  });
+
+  foxEl.addEventListener("pointermove", function (e) {
+    if (!foxDrag || e.pointerId !== foxDrag.id) return;
+    e.preventDefault();
+    e.stopPropagation();
+    if (!foxDrag.moved &&
+        (Math.abs(e.clientX - foxDrag.sx) > 4 || Math.abs(e.clientY - foxDrag.sy) > 4)) {
+      foxDrag.moved = true;
+    }
+    moveFox(e.clientX - foxDrag.dx, e.clientY - foxDrag.dy);
+  });
+
+  function endFoxDrag(e) {
+    if (!foxDrag || (e && e.pointerId !== foxDrag.id)) return;
+    var moved = foxDrag.moved;
+    foxDrag = null;
+    foxEl.classList.remove("dragging");
+    if (e) { e.preventDefault(); e.stopPropagation(); }
+    if (moved) {
+      saveFoxPos();
+      foxSay("就待在这儿～", 1200);
+      return;
+    }
+    // 轻点一下：先判断是不是双击（回到右下角）
+    var now = Date.now();
+    if (now - lastFoxTap < 320) {
+      lastFoxTap = 0;
+      resetFoxPos();
+      return;
+    }
+    lastFoxTap = now;
+    hopFox();
+    foxSay(FOX_LINES[Math.floor(Math.random() * FOX_LINES.length)]);
+  }
+  foxEl.addEventListener("pointerup", endFoxDrag);
+  foxEl.addEventListener("pointercancel", endFoxDrag);
+
+  window.addEventListener("resize", function () { restoreFoxPos(); });
+
+  /* ---------------- 初始化 ---------------- */
+  document.getElementById("logoMark").innerHTML = FOX_SVG;
+  document.getElementById("foxArt").innerHTML = FOX_SVG;
+  restoreFoxPos();
+  var hintSeen = false;
+  try { hintSeen = localStorage.getItem(FOX_HINT_KEY) === "1"; } catch (e) {}
+  if (!hintSeen) {
+    foxSay("拖我", 4200);
+    try { localStorage.setItem(FOX_HINT_KEY, "1"); } catch (e) {}
+  }
+
+  var savedSize = "large";
+  try { savedSize = localStorage.getItem(SIZE_KEY) || "large"; } catch (e) {}
+  applySize(savedSize);
+  scrambleEl.textContent = newScramble();
+  render();
+})();
+</script>
+</body>
+</html>
